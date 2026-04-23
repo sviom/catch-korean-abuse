@@ -11,31 +11,65 @@ from pathlib import Path
 
 # ── Whisper 로드 ──────────────────────────────────────────────────
 import warnings
+
 warnings.filterwarnings("ignore")
 
 try:
     import whisper as openai_whisper
+
     WHISPER_AVAILABLE = True
 except ImportError:
     WHISPER_AVAILABLE = False
     print("[WARN] openai-whisper not installed. Using mock transcription.")
 
 # ── 설정 ─────────────────────────────────────────────────────────
-DEFAULT_MODEL_TYPE = "base"   # "base" | "local"
-LOCAL_MODEL_PATH   = os.getenv("LOCAL_MODEL_PATH", "./local_model")
-ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
+DEFAULT_MODEL_TYPE = "base"  # "base" | "local"
+LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", "./local_model")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 # ── 한국어 욕설 블랙리스트 (1차 필터) ────────────────────────────
 KO_BLACKLIST = [
-    "씨발", "시발", "ㅅㅂ", "씹", "개새끼", "새끼", "ㅅㄲ",
-    "병신", "ㅂㅅ", "미친", "ㅁㅊ", "지랄", "꺼져", "닥쳐",
-    "죽어", "존나", "ㅈㄴ", "창녀", "보지", "자지", "년", "놈",
-    "개년", "개놈", "썅", "빌어먹", "엿먹", "니애미", "니에미",
-    "니미", "ㄴㅁ", "좆", "ㅈ같", "fuck", "shit", "bitch",
+    "씨발",
+    "시발",
+    "ㅅㅂ",
+    "씹",
+    "개새끼",
+    "새끼",
+    "ㅅㄲ",
+    "병신",
+    "ㅂㅅ",
+    "미친",
+    "ㅁㅊ",
+    "지랄",
+    "꺼져",
+    "닥쳐",
+    "죽어",
+    "존나",
+    "ㅈㄴ",
+    "창녀",
+    "보지",
+    "자지",
+    "년",
+    "놈",
+    "개년",
+    "개놈",
+    "썅",
+    "빌어먹",
+    "엿먹",
+    "니애미",
+    "니에미",
+    "니미",
+    "ㄴㅁ",
+    "좆",
+    "ㅈ같",
+    "fuck",
+    "shit",
+    "bitch",
 ]
 
 # ── Whisper 모델 싱글턴 ───────────────────────────────────────────
 _whisper_cache: dict = {}
+
 
 def get_whisper_model(model_type: str, local_path: str = ""):
     key = f"{model_type}:{local_path}"
@@ -51,6 +85,7 @@ def get_whisper_model(model_type: str, local_path: str = ""):
             _whisper_cache[key] = openai_whisper.load_model("base")
     return _whisper_cache[key]
 
+
 # ── 전사 ──────────────────────────────────────────────────────────
 def transcribe_audio(audio_path: str, model_type: str, local_path: str) -> str:
     model = get_whisper_model(model_type, local_path)
@@ -59,11 +94,13 @@ def transcribe_audio(audio_path: str, model_type: str, local_path: str) -> str:
     result = model.transcribe(audio_path, language="ko", fp16=False)
     return result.get("text", "").strip()
 
+
 # ── 블랙리스트 1차 필터 ───────────────────────────────────────────
 def blacklist_check(text: str) -> tuple[bool, list[str]]:
     text_lower = text.lower()
     found = [w for w in KO_BLACKLIST if w in text_lower]
     return bool(found), found
+
 
 # ── LLM 2차 판별 ─────────────────────────────────────────────────
 def llm_check(text: str) -> tuple[bool, str, float]:
@@ -88,14 +125,25 @@ def llm_check(text: str) -> tuple[bool, str, float]:
         )
         raw = msg.content[0].text.strip()
         data = json.loads(raw)
-        return bool(data["is_profane"]), data.get("reason", ""), float(data.get("confidence", 0.5))
+        return (
+            bool(data["is_profane"]),
+            data.get("reason", ""),
+            float(data.get("confidence", 0.5)),
+        )
     except Exception as e:
         return False, f"LLM 오류: {e}", 0.0
+
 
 # ── 통합 판별 ─────────────────────────────────────────────────────
 def detect_profanity(text: str, use_llm: bool) -> dict:
     if not text.strip():
-        return {"is_profane": False, "method": "-", "reason": "빈 텍스트", "confidence": 0.0, "found_words": []}
+        return {
+            "is_profane": False,
+            "method": "-",
+            "reason": "빈 텍스트",
+            "confidence": 0.0,
+            "found_words": [],
+        }
 
     # 1차
     bl_hit, found_words = blacklist_check(text)
@@ -120,13 +168,20 @@ def detect_profanity(text: str, use_llm: bool) -> dict:
             "found_words": [],
         }
 
-    return {"is_profane": False, "method": "블랙리스트만", "reason": "욕설 없음", "confidence": 0.95, "found_words": []}
+    return {
+        "is_profane": False,
+        "method": "블랙리스트만",
+        "reason": "욕설 없음",
+        "confidence": 0.95,
+        "found_words": [],
+    }
+
 
 # ── 로그 포맷 ─────────────────────────────────────────────────────
 def format_log_row(ts: str, text: str, result: dict) -> str:
-    icon   = "🚨" if result["is_profane"] else "✅"
-    label  = "욕설 감지" if result["is_profane"] else "정상"
-    conf   = f"{result['confidence']*100:.0f}%"
+    icon = "🚨" if result["is_profane"] else "✅"
+    label = "욕설 감지" if result["is_profane"] else "정상"
+    conf = f"{result['confidence']*100:.0f}%"
     method = result["method"]
     reason = result["reason"][:40]
     return (
@@ -135,6 +190,7 @@ def format_log_row(ts: str, text: str, result: dict) -> str:
         f"<td class='text-cell'>{text[:60]}{'…' if len(text)>60 else ''}</td>"
         f"<td>{conf}</td><td>{method}</td><td>{reason}</td></tr>"
     )
+
 
 # ── 파일 업로드 처리 ──────────────────────────────────────────────
 def process_uploaded_file(
@@ -147,21 +203,32 @@ def process_uploaded_file(
     stats_state: dict,
 ):
     if audio_file is None:
-        return log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), "파일을 업로드해 주세요."
+        return (
+            log_state,
+            stats_state,
+            build_log_html(log_state),
+            build_stats_html(stats_state),
+            "파일을 업로드해 주세요.",
+        )
 
     status_msgs = []
     try:
         import soundfile as sf
+
         data, sr = sf.read(audio_file)
         if data.ndim > 1:
             data = data.mean(axis=1)
 
         total_samples = len(data)
         chunk_samples = int(interval_sec * sr)
-        num_chunks    = max(1, total_samples // chunk_samples)
+        num_chunks = max(1, total_samples // chunk_samples)
 
-        status_msgs.append(f"📂 파일 로드 완료 | 총 {total_samples/sr:.1f}초 | {num_chunks}개 청크 처리 예정")
-        yield log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), "\n".join(status_msgs)
+        status_msgs.append(
+            f"📂 파일 로드 완료 | 총 {total_samples/sr:.1f}초 | {num_chunks}개 청크 처리 예정"
+        )
+        yield log_state, stats_state, build_log_html(log_state), build_stats_html(
+            stats_state
+        ), "\n".join(status_msgs)
 
         for i in range(num_chunks):
             chunk = data[i * chunk_samples : (i + 1) * chunk_samples]
@@ -170,11 +237,12 @@ def process_uploaded_file(
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 import soundfile as sf2
+
                 sf2.write(f.name, chunk, sr)
                 tmp_path = f.name
 
-            ts     = datetime.now().strftime("%H:%M:%S")
-            text   = transcribe_audio(tmp_path, model_type, local_model_path)
+            ts = datetime.now().strftime("%H:%M:%S")
+            text = transcribe_audio(tmp_path, model_type, local_model_path)
             result = detect_profanity(text, use_llm)
             os.unlink(tmp_path)
 
@@ -187,13 +255,19 @@ def process_uploaded_file(
                 f"[{ts}] 청크 {i+1}/{num_chunks} | "
                 f"{'🚨 욕설' if result['is_profane'] else '✅ 정상'} | {text[:30]}…"
             )
-            yield log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), "\n".join(status_msgs[-8:])
+            yield log_state, stats_state, build_log_html(log_state), build_stats_html(
+                stats_state
+            ), "\n".join(status_msgs[-8:])
 
         status_msgs.append("✅ 파일 처리 완료")
-        yield log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), "\n".join(status_msgs[-8:])
+        yield log_state, stats_state, build_log_html(log_state), build_stats_html(
+            stats_state
+        ), "\n".join(status_msgs[-8:])
 
     except Exception as e:
-        yield log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), f"❌ 오류: {e}"
+        yield log_state, stats_state, build_log_html(log_state), build_stats_html(
+            stats_state
+        ), f"❌ 오류: {e}"
 
 
 # ── 마이크 스트리밍 처리 ──────────────────────────────────────────
@@ -208,7 +282,14 @@ def process_stream_chunk(
     buffer_state: dict,
 ):
     if audio_chunk is None:
-        return log_state, stats_state, buffer_state, build_log_html(log_state), build_stats_html(stats_state), ""
+        return (
+            log_state,
+            stats_state,
+            buffer_state,
+            build_log_html(log_state),
+            build_stats_html(stats_state),
+            "",
+        )
 
     sr, data = audio_chunk
     if data.ndim > 1:
@@ -224,16 +305,17 @@ def process_stream_chunk(
     status = ""
 
     if len(buffer_state["samples"]) >= required:
-        chunk    = np.array(buffer_state["samples"][:required], dtype=np.float32)
+        chunk = np.array(buffer_state["samples"][:required], dtype=np.float32)
         buffer_state["samples"] = buffer_state["samples"][required:]
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             import soundfile as sf
+
             sf.write(f.name, chunk, sr)
             tmp_path = f.name
 
-        ts     = datetime.now().strftime("%H:%M:%S")
-        text   = transcribe_audio(tmp_path, model_type, local_model_path)
+        ts = datetime.now().strftime("%H:%M:%S")
+        text = transcribe_audio(tmp_path, model_type, local_model_path)
         result = detect_profanity(text, use_llm)
         os.unlink(tmp_path)
 
@@ -242,10 +324,17 @@ def process_stream_chunk(
         if result["is_profane"]:
             stats_state["profane"] += 1
 
-        icon   = "🚨 욕설 감지!" if result["is_profane"] else "✅ 정상"
+        icon = "🚨 욕설 감지!" if result["is_profane"] else "✅ 정상"
         status = f"[{ts}] {icon} | {text[:40]}"
 
-    return log_state, stats_state, buffer_state, build_log_html(log_state), build_stats_html(stats_state), status
+    return (
+        log_state,
+        stats_state,
+        buffer_state,
+        build_log_html(log_state),
+        build_stats_html(stats_state),
+        status,
+    )
 
 
 # ── HTML 빌더 ─────────────────────────────────────────────────────
@@ -267,11 +356,11 @@ def build_log_html(log_state: list) -> str:
 
 
 def build_stats_html(stats: dict) -> str:
-    total   = stats.get("total", 0)
+    total = stats.get("total", 0)
     profane = stats.get("profane", 0)
-    clean   = total - profane
-    rate    = (profane / total * 100) if total else 0
-    bar_w   = f"{rate:.0f}%"
+    clean = total - profane
+    rate = (profane / total * 100) if total else 0
+    bar_w = f"{rate:.0f}%"
     return f"""
 <div class='stats-grid'>
   <div class='stat-card total'><div class='stat-num'>{total}</div><div class='stat-label'>전체 청크</div></div>
@@ -287,7 +376,13 @@ def build_stats_html(stats: dict) -> str:
 def clear_log(log_state, stats_state):
     log_state.clear()
     stats_state.update({"total": 0, "profane": 0})
-    return log_state, stats_state, build_log_html(log_state), build_stats_html(stats_state), ""
+    return (
+        log_state,
+        stats_state,
+        build_log_html(log_state),
+        build_stats_html(stats_state),
+        "",
+    )
 
 
 # ── CSS ───────────────────────────────────────────────────────────
@@ -380,8 +475,8 @@ button.stop { background: var(--danger) !important; color: #fff !important;
 with gr.Blocks(css=CSS, title="한국어 욕설 탐지기") as demo:
 
     # ── 상태 ──
-    log_state    = gr.State([])
-    stats_state  = gr.State({"total": 0, "profane": 0})
+    log_state = gr.State([])
+    stats_state = gr.State({"total": 0, "profane": 0})
     buffer_state = gr.State({"samples": [], "sr": 16000})
 
     # ── 헤더 ──
@@ -424,7 +519,10 @@ with gr.Blocks(css=CSS, title="한국어 욕설 탐지기") as demo:
 
             gr.HTML("<div class='section-label'>⏱️ 청크 설정</div>")
             interval = gr.Slider(
-                minimum=1, maximum=30, value=5, step=1,
+                minimum=1,
+                maximum=30,
+                value=5,
+                step=1,
                 label="분석 주기 (초)",
                 info="오디오를 이 간격으로 잘라 분석합니다",
             )
@@ -483,21 +581,46 @@ with gr.Blocks(css=CSS, title="한국어 욕설 탐지기") as demo:
     # ── 모델 타입 변경 ────────────────────────────────────────────
     model_type.change(
         lambda t: gr.update(visible=(t == "local")),
-        inputs=[model_type], outputs=[local_path],
+        inputs=[model_type],
+        outputs=[local_path],
     )
 
     # ── 파일 분석 ─────────────────────────────────────────────────
     analyze_btn.click(
         process_uploaded_file,
-        inputs=[file_audio, interval, use_llm, model_type, local_path, log_state, stats_state],
+        inputs=[
+            file_audio,
+            interval,
+            use_llm,
+            model_type,
+            local_path,
+            log_state,
+            stats_state,
+        ],
         outputs=[log_state, stats_state, log_html, stats_html, file_status],
     )
 
     # ── 마이크 스트리밍 ───────────────────────────────────────────
     mic_audio.stream(
         process_stream_chunk,
-        inputs=[mic_audio, interval, use_llm, model_type, local_path, log_state, stats_state, buffer_state],
-        outputs=[log_state, stats_state, buffer_state, log_html, stats_html, mic_status],
+        inputs=[
+            mic_audio,
+            interval,
+            use_llm,
+            model_type,
+            local_path,
+            log_state,
+            stats_state,
+            buffer_state,
+        ],
+        outputs=[
+            log_state,
+            stats_state,
+            buffer_state,
+            log_html,
+            stats_html,
+            mic_status,
+        ],
     )
 
     # ── 초기화 ────────────────────────────────────────────────────

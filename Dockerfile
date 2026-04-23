@@ -1,4 +1,7 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV UV_PYTHON_DOWNLOADS=0
 
 # ffmpeg 설치 (Whisper 오디오 디코딩 필수)
 RUN apt-get update && apt-get install -y \
