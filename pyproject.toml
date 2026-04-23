@@ -1,0 +1,16 @@
+[project]
+name = "catch-korean-abuse"
+version = "0.1.0"
+description = "실시간 오디오 혹은 오디오 파일 속에 욕설이 들어있는지 판별하는 것을 위한 프로젝트입니다."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.96.0",
+    "ffmpeg-python>=0.2.0",
+    "gradio>=6.13.0",
+    "numpy>=2.4.4",
+    "openai-whisper>=20250625",
+    "soundfile>=0.13.1",
+    "torch>=2.11.0",
+    "torchaudio>=2.11.0",
+]
