@@ -384,95 +384,8 @@ def clear_log(log_state, stats_state):
         "",
     )
 
-
-# ── CSS ───────────────────────────────────────────────────────────
-CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
-
-:root {
-  --bg:        #0d0f14;
-  --surface:   #141720;
-  --surface2:  #1c2030;
-  --border:    #2a2f40;
-  --accent:    #4f8ef7;
-  --danger:    #f74f6a;
-  --safe:      #4fffa3;
-  --warn:      #f7c44f;
-  --text:      #e8ecf5;
-  --muted:     #6b7491;
-  --radius:    10px;
-}
-
-body, .gradio-container { background: var(--bg) !important; color: var(--text) !important; font-family: 'Noto Sans KR', sans-serif !important; }
-
-/* Header */
-.app-header { text-align:center; padding: 2rem 0 1rem; }
-.app-title { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px;
-  background: linear-gradient(135deg, var(--accent), var(--safe));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.app-sub { color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
-
-/* Tabs */
-.tab-nav button { background: var(--surface2) !important; color: var(--muted) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius) !important;
-  font-family: 'Noto Sans KR', sans-serif !important; }
-.tab-nav button.selected { background: var(--accent) !important; color: #fff !important; }
-
-/* Labels & Sliders */
-label span, .label-wrap span { color: var(--text) !important; font-size: 0.85rem !important; }
-input[type=range] { accent-color: var(--accent); }
-input[type=number], textarea { background: var(--surface2) !important; border: 1px solid var(--border) !important;
-  color: var(--text) !important; border-radius: var(--radius) !important; }
-
-/* Buttons */
-button.primary { background: var(--accent) !important; color: #fff !important;
-  border: none !important; border-radius: var(--radius) !important;
-  font-family: 'Noto Sans KR', sans-serif !important; font-weight: 600 !important; }
-button.secondary { background: var(--surface2) !important; color: var(--muted) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius) !important; }
-button.stop { background: var(--danger) !important; color: #fff !important;
-  border: none !important; border-radius: var(--radius) !important; }
-
-/* Status box */
-.status-box textarea { background: var(--surface) !important; border: 1px solid var(--border) !important;
-  color: var(--safe) !important; font-family: 'JetBrains Mono', monospace !important; font-size: 0.82rem !important; }
-
-/* Stats */
-.stats-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; padding:4px; }
-.stat-card { background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px 12px; text-align:center; }
-.stat-card.danger { border-color: var(--danger); }
-.stat-card.safe   { border-color: var(--safe);   }
-.stat-card.total  { border-color: var(--accent);  }
-.stat-card.rate   { border-color: var(--warn);    }
-.stat-num   { font-size: 2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.stat-label { font-size: 0.75rem; color: var(--muted); margin-top:4px; }
-.bar-bg  { background: var(--border); border-radius:4px; height:4px; margin-top:8px; overflow:hidden; }
-.bar-fill{ background: var(--danger); height:100%; transition: width 0.4s ease; border-radius:4px; }
-
-/* Log table */
-.log-wrap { overflow-x:auto; max-height:420px; overflow-y:auto; }
-.log-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
-.log-table thead th { background: var(--surface); color: var(--muted);
-  padding:8px 12px; text-align:left; position:sticky; top:0; border-bottom:1px solid var(--border); }
-.log-table tbody td { padding:7px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
-.row-profane { background: rgba(247,79,106,0.08); }
-.row-clean   { background: transparent; }
-.row-profane:hover { background: rgba(247,79,106,0.15); }
-.row-clean:hover   { background: rgba(79,142,247,0.07);  }
-.text-cell { font-family: 'JetBrains Mono', monospace; font-size:0.78rem; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.empty-msg { color: var(--muted); text-align:center; padding:40px; font-size:0.9rem; }
-
-/* Checkboxes & Radios */
-.gr-checkbox, input[type=checkbox] { accent-color: var(--accent); }
-
-/* Section labels */
-.section-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase;
-  letter-spacing: 1px; padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 8px; }
-"""
-
 # ── Gradio UI ─────────────────────────────────────────────────────
-with gr.Blocks(css=CSS, title="한국어 욕설 탐지기") as demo:
+with gr.Blocks(css=gr.themes.Ocean(), title="한국어 욕설 탐지기") as demo:
 
     # ── 상태 ──
     log_state = gr.State([])
@@ -632,8 +545,21 @@ with gr.Blocks(css=CSS, title="한국어 욕설 탐지기") as demo:
 
 
 if __name__ == "__main__":
+    # 환경 변수에서 포트 번호와 호스트 가져오기, 없으면 9999
+    preferred_port = int(os.environ.get("GRADIO_SERVER_PORT", 9999))
+    server_name = os.environ.get("GRADIO_SERVER_NAME", "localhost")
+    debug_mode = os.getenv("APP_ENV", "production").lower() == "development"
+
+    print("웹 인터페이스를 시작합니다...")
+    print(f"브라우저에서 아래 주소로 접속하세요: http://{server_name}:{preferred_port}")
+
     demo.launch(
-        server_name="0.0.0.0",
-        server_port=int(os.getenv("PORT", 7860)),
+        server_name=server_name,
+        server_port=preferred_port,
         share=False,
+        debug=debug_mode,
+        show_error=True,
+        inbrowser=True,
+        prevent_thread_lock=False,
     )
+
